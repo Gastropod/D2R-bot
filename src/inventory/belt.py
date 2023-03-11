@@ -141,6 +141,11 @@ def update_pot_needs():
     consumables.set_needs("mana", pot_needs["mana"])
     consumables.set_needs("rejuv", pot_needs["rejuv"])
     close(img)
+    # Return needs dict if any pot is needed, else return None. This can be used as a boolean evaluation.
+    if sum(pot_needs.values()):
+        return pot_needs
+    else:
+        return None
 
 def fill_up_belt_from_inventory(num_loot_columns: int):
     """

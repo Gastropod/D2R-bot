@@ -194,43 +194,81 @@ def log_item_fail(hovered_item, slot):
     if Config().general["info_screenshots"]:
         cv2.imwrite("./log/screenshots/info/failed_item_box_" + time.strftime("%Y%m%d_%H%M%S") + ".png", hovered_item)
 
+def _check_occupied_slots(inp_img):
+    img = open(inp_img)
+    occupied_slots = []
+    # check which slots have items
+    for column, row in itertools.product(range(Config().char["num_loot_columns"]), range(4)):
+        slot_pos, slot_img = common.get_slot_pos_and_img(img, column, row)
+        if common.slot_has_item(slot_img):
+            occupied_slots.append([slot_pos, row, column])
+    return occupied_slots
+
+def _is_slot_checked(slot, already_detected_slots, item_rois):
+    # ignore this slot if it lies within the range of a previous item's dimension property
+    if (slot[1], slot[2]) in already_detected_slots: return True
+    # ignore this slot if it lies within in a previous item's ROI (no dimension property)
+    if any(is_in_roi(item_roi, slot[0]) for item_roi in item_rois): return True
+    return False
+
+def _get_item_info(slot, delay,x_m, y_m):
+    mouse.move(x_m, y_m, randomize = 10, delay_factor = delay)
+    wait(0.1, 0.2)
+    hovered_item = grab(True)
+    # get the item description box
+    item_properties, item_box = (None, None)
+    try: # ! This happens because we don't know the items slot count. To get more context remove the try and catch and see what happens
+        item_properties, item_box = d2r_image.get_hovered_item(hovered_item)
+    except Exception as e:
+        Logger.error(f"personal.inspect_items(): Failed to get item properties for slot {slot}")
+        return None, None
+    return item_properties, item_box
+
+def _get_item_roi(slot, item_box, x_m, y_m, delay):
+    # determine the item's ROI in inventory
+    cnt=0
+    img = grab(True)
+    while True:
+        pre = mask_by_roi(img, Config().ui_roi["open_inventory_area"])
+        post = mask_by_roi(hovered_item, Config().ui_roi["open_inventory_area"])
+        # will sometimes have equivalent diff if mouse ends up in an inconvenient place.
+        if not np.array_equal(pre, post):
+            break
+        Logger.debug(f"inspect_items: pre=post, try again. slot {slot[0]}")
+        center_mouse(delay_factor=[0.05, 0.1])
+        img = grab(True)
+        mouse.move(x_m, y_m, randomize = 10, delay_factor = delay)
+        wait(0.05, 0.1)
+        hovered_item = grab(True)
+        cnt += 1
+        if cnt >= 2:
+            Logger.error(f"inspect_items: Unable to get item's inventory ROI, slot {slot[0]}")
+            break
+    extend_roi = item_box.roi[:]
+    extend_roi[3] = extend_roi[3] + 30
+    item_roi = common.calc_item_roi(mask_by_roi(pre, extend_roi, type = "inverse"), mask_by_roi(post, extend_roi, type = "inverse"))
+    return item_roi
+
+
 def inspect_items(inp_img: np.ndarray = None, close_window: bool = True, game_stats: GameStats = None, ignore_sell: bool = False) -> list[BoxInfo]:
     """
     Iterate over all picked items in inventory--ID items and decide which to stash
     :param img: Image in which the item is searched (item details should be visible)
     """
     center_mouse()
-    img = open(inp_img)
-    vendor_open = is_visible(ScreenObjects.GoldBtnVendor, inp_img)
-    slots = []
-    # check which slots have items
-    for column, row in itertools.product(range(Config().char["num_loot_columns"]), range(4)):
-        slot_pos, slot_img = common.get_slot_pos_and_img(img, column, row)
-        if common.slot_has_item(slot_img):
-            slots.append([slot_pos, row, column])
+    in_vendor_menu = is_visible(ScreenObjects.GoldBtnVendor, inp_img)
+    occupied_slots = _check_occupied_slots(inp_img)
     boxes = []
     # iterate over slots with items
     item_rois = []
     already_detected_slots = set()
-    for count, slot in enumerate(slots):
+    for count, slot in enumerate(occupied_slots):
         failed = False
-        # ignore this slot if it lies within the range of a previous item's dimension property
-        if (slot[1], slot[2]) in already_detected_slots: continue
-        # ignore this slot if it lies within in a previous item's ROI (no dimension property)
-        if any(is_in_roi(item_roi, slot[0]) for item_roi in item_rois): continue
-        img = grab(True)
-        x_m, y_m = convert_screen_to_monitor(slot[0])
+        if _is_slot_checked(slot, already_detected_slots, item_rois):
+            continue
         delay = [0.2, 0.3] if count else [1, 1.3]
-        mouse.move(x_m, y_m, randomize = 10, delay_factor = delay)
-        wait(0.1, 0.2)
-        hovered_item = grab(True)
-        # get the item description box
-        item_properties, item_box = (None, None)
-        try: # ! This happens because we don't know the items slot count. To get more context remove the try and catch and see what happens
-            item_properties, item_box = d2r_image.get_hovered_item(hovered_item)
-        except Exception as e:
-            Logger.error(f"personal.inspect_items(): Failed to get item properties for slot {slot}")
-            failed = True
+        x_m, y_m = convert_screen_to_monitor(slot[0])
+        item_properties, item_box = _get_item_info(slot, delay, x_m, y_m)
         if item_box is None:
             failed = True
         else:
@@ -240,34 +278,13 @@ def inspect_items(inp_img: np.ndarray = None, close_window: bool = True, game_st
                     already_detected_slots.update(positions)
                 else:
                     Logger.error(f"personal.inspect_items(): unable to determine dimensions for slot {slot}")
-                    # determine the item's ROI in inventory
-                    cnt=0
-                    while True:
-                        pre = mask_by_roi(img, Config().ui_roi["open_inventory_area"])
-                        post = mask_by_roi(hovered_item, Config().ui_roi["open_inventory_area"])
-                        # will sometimes have equivalent diff if mouse ends up in an inconvenient place.
-                        if not np.array_equal(pre, post):
-                            break
-                        Logger.debug(f"inspect_items: pre=post, try again. slot {slot[0]}")
-                        center_mouse(delay_factor=[0.05, 0.1])
-                        img = grab(True)
-                        mouse.move(x_m, y_m, randomize = 10, delay_factor = delay)
-                        wait(0.05, 0.1)
-                        hovered_item = grab(True)
-                        cnt += 1
-                        if cnt >= 2:
-                            Logger.error(f"inspect_items: Unable to get item's inventory ROI, slot {slot[0]}")
-                            break
-                    extend_roi = item_box.roi[:]
-                    extend_roi[3] = extend_roi[3] + 30
-                    item_roi = common.calc_item_roi(mask_by_roi(pre, extend_roi, type = "inverse"), mask_by_roi(post, extend_roi, type = "inverse"))
+                    item_roi = _get_item_roi(slot, item_box, x_m, y_m, delay)
                     if item_roi:
                         item_rois.append(item_roi)
 
                 # determine whether the item can be sold
                 ocr_result_split = item_box.ocr_result.text.splitlines()
-
-                item_name = vendor_open and ocr_result_split[1] or ocr_result_split[0]
+                item_name = in_vendor_menu and ocr_result_split[1] or ocr_result_split[0]
                 item_can_be_traded = not any(substring in item_name for substring in nontradable_items)
                 sell = Config().char["sell_junk"] and item_can_be_traded and not ignore_sell
                 is_unidentified = is_visible(ScreenObjects.Unidentified, item_box.img)
@@ -283,7 +300,7 @@ def inspect_items(inp_img: np.ndarray = None, close_window: bool = True, game_st
                 )
 
                 tome_state = None
-                try:
+                if True:
                     if (is_unidentified and should_id(item_properties.as_dict())):
                         box.need_id = True
                         center_mouse()
@@ -291,12 +308,13 @@ def inspect_items(inp_img: np.ndarray = None, close_window: bool = True, game_st
                     if is_unidentified and tome_state is not None and tome_state == "ok":
                         common.id_item_with_tome([x_m, y_m], tome_pos)
                         box.need_id = False
-                        is_unidentified = True
-                        # recapture box after ID
-                        mouse.move(x_m, y_m, randomize = 4, delay_factor = delay)
-                        wait(0.05, 0.1)
-                        hovered_item = grab(True)
-                        item_properties, item_box = d2r_image.get_hovered_item(hovered_item)
+                        is_unidentified = False
+                    
+                    # recapture box after ID
+                    mouse.move(x_m, y_m, randomize = 4, delay_factor = delay)
+                    wait(0.05, 0.1)
+                    hovered_item = grab(True)
+                    item_properties, item_box = d2r_image.get_hovered_item(hovered_item)
 
                     if item_box is not None:
                         log_item(item_box, item_properties)
@@ -317,7 +335,7 @@ def inspect_items(inp_img: np.ndarray = None, close_window: bool = True, game_st
                             Logger.debug(f"Discarding {item_name}.")
 
                         # sell if not keeping item, vendor is open, and item type can be traded
-                        if vendor_open and item_can_be_traded and not (box.keep or box.need_id):
+                        if in_vendor_menu and item_can_be_traded and not (box.keep or box.need_id):
                             box.sell = True
                             transfer_items([box], action = "sell")
                             continue
@@ -336,6 +354,8 @@ def inspect_items(inp_img: np.ndarray = None, close_window: bool = True, game_st
                         wait(0.05, 0.2)
                     else:
                         failed = True
+                try:
+                    pass
                 except AttributeError as e:
                     failed = True
                     # * Drop item.

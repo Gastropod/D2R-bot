@@ -32,6 +32,8 @@ class TownManager:
     @staticmethod
     def get_act_from_location(loc: Location) -> Location:
         location = None
+        if not loc:
+            return location
         if loc.upper().startswith("A5_"):
             location = Location.A5_TOWN_START
         elif loc.upper().startswith("A4_"):

@@ -53,12 +53,13 @@ class Diablo:
     def _cs_town_visit(self, location:str) -> bool:
         # Do we want to go back to town and restock potions etc?
         if Config().char["cs_town_visits"]:
-            buy_pots = belt.should_buy_pots()
-            if not buy_pots:
+            pot_needs = belt.update_pot_needs()
+            if not pot_needs:
                 Logger.debug(location + ": Got enough pots, no need to go to town right now.")
             else:
                 Logger.info(location + ": Going back to town to visit our friend Jamella (heal/clear debuffs/restock potions)")
                 success = self._char.tp_town()
+                self._curr_loc = Location.A4_TOWN_START
                 if success:
                     self._curr_loc = self._town_manager.wait_for_tp(self._curr_loc)
                     # Check if we should stash while we are in town
@@ -67,19 +68,16 @@ class Diablo:
                     if force_stash:
                         Logger.debug(location + ": Identifying items")
                         self._curr_loc = self._town_manager.identify(self._curr_loc)
-                        if not self._curr_loc:
-                            return self.trigger_or_stop("end_game", failed=True)
-                        Logger.debug(location + ":Stashing items")
-                        self._curr_loc = self._town_manager.stash(self._curr_loc)
-                        if not self._curr_loc:
-                            return self.trigger_or_stop("end_game", failed=True)
-                        self._no_stash_counter = 0
-                        self._picked_up_items = False
-                        wait(1.0)
+                        if self._curr_loc:
+                            Logger.debug(location + ":Stashing items")
+                            self._curr_loc = self._town_manager.stash(self._curr_loc)
+                            if self._curr_loc:
+                                self._no_stash_counter = 0
+                                self._picked_up_items = False
+                                wait(1.0)
                     # Shop some pots
                     if self._curr_loc:
-                        pot_needs = belt.get_pot_needs()
-                        self._curr_loc = self._town_manager.buy_pots(self._curr_loc, pot_needs["health"], pot_needs["mana"])
+                        self._curr_loc = self._town_manager.buy_consumables(self._curr_loc)
                     Logger.debug(location + ": Done in town, now going back to portal...")
                     # Move from Act 4 NPC Jamella towards WP where we can see the Blue Portal
                     if not self._pather.traverse_nodes([164, 163], self._char, timeout=2): return False

@@ -124,9 +124,10 @@ def crop_item_tooltip(image: np.ndarray, model: str = "hover-eng_inconsolata_inv
             overlaps_inventory |= not (
                 x+w < left_inv[0] or left_inv[0]+left_inv[2] < x or y+h+60 < left_inv[1] or left_inv[1]+left_inv[3] < y)
         if not overlaps_inventory:
-            continue
-
-        #print(f"x: {x}, y: {y}, w: {w}, h: {h}")
+            pass
+            # continue
+            # BUG: When we continue here, we skip a lot of valid item tooltops. This check does not work, so we just skip it for now.
+            
         footer_y = (y + h) if (y + h) < 700 else 700
         footer_h = 720 - footer_y
         found_footer = template_finder.search(["TO_TOOLTIP"], image, threshold=0.8, roi=[x, footer_y, w, footer_h]).valid

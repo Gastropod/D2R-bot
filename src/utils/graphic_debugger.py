@@ -58,7 +58,8 @@ class GraphicDebuggerController:
             self.active_layers = {}
             self.displayed_layers = {}
             self.panel = None
-            self.app.destroy()
+            if self.app is not None:
+                self.app.destroy()
         if self.debugger_thread: kill_thread(self.debugger_thread)
         if self.ui_thread: kill_thread(self.ui_thread)
         cv2.destroyAllWindows()
@@ -286,11 +287,11 @@ class GraphicDebuggerController:
     def run_old_debugger(self):
         search_templates = ["A5_TOWN_0", "A5_TOWN_1", "A5_TOWN_2", "A5_TOWN_3"]
         while 1:
-            img = grab()
+            combined_img = grab()
             # Show Town A5 template matches
             scores = {}
             for template_name in search_templates:
-                template_match = template_finder.search(template_name, img, threshold=0.65)
+                template_match = template_finder.search(template_name, combined_img, threshold=0.65)
                 if template_match.valid:
                     scores[template_match.name] = template_match.score
                     cv2.putText(combined_img, str(template_name), template_match.center, cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
