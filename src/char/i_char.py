@@ -33,6 +33,10 @@ class IChar:
         }
         self._use_safer_routines = Config().char["safer_routines"]
 
+    def _cast_spam(self, _):
+        # Placeholder for classes that can cast spam
+        pass
+
     def _set_active_skill(self, mouse_click_type: str = "left", skill: str =""):
         self._active_skill[mouse_click_type] = skill
 
