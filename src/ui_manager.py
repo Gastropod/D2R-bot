@@ -14,10 +14,10 @@ from screen import convert_abs_to_screen, convert_monitor_to_screen, convert_scr
 import template_finder
 from template_finder import TemplateMatch
 from dataclasses import dataclass
-from messages import Messenger
+# from messages import Messenger
 from game_stats import GameStats
 
-messenger = Messenger()
+# messenger = Messenger()
 game_stats = GameStats()
 T = TypeVar('T')
 

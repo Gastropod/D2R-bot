@@ -319,7 +319,13 @@ def inspect_items(inp_img: np.ndarray = None, close_window: bool = True, game_st
                     if item_box is not None:
                         log_item(item_box, item_properties)
                         # decide whether to keep item
-                        box.keep, expression = should_keep(item_properties.as_dict())
+                        try:
+                            box.keep, expression = should_keep(item_properties.as_dict())
+                        except AttributeError:
+                            Logger.error(f"inspect_items: Failed to get item properties for {item_name}")
+                            box.keep = False
+                            box.need_id = True
+                            expression = ""
 
                         # make sure it's not a consumable
                         # TODO: logic for trying to add potion to belt if there are needs

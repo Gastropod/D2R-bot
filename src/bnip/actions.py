@@ -238,10 +238,12 @@ num_files = 0
 if len(bnip_file_paths) > 0:
     num_files = len(bnip_file_paths)
     for bnip_file_path in bnip_file_paths:
+        Logger.info(f"Loading nip file: {bnip_file_path}")
         _load_bnip_expressions(bnip_file_path)
 # fallback to default nip file if no custom nip files specified or existing files are excluded
 else:
     num_files = 1
+    Logger.info(f"Loading nip file: {default_bnip_file_path}")
     _load_bnip_expressions(default_bnip_file_path)
     Logger.warning("No .bnip files in config/nip/, fallback to default.bnip")
 Logger.info(f"Loaded {num_files} nip files with {len(bnip_expressions)} total expressions.")

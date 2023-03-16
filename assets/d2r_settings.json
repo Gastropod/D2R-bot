@@ -15,6 +15,7 @@
     "VSync": 1,
     "Framerate Cap": 60,
     "Framerate Target": 0,
+    "AutoMap Open On Load": 0,
     "Window Mode": 0,
     "Graphic Presets": 4,
     "Texture Quality": 4,

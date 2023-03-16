@@ -157,6 +157,9 @@ class Hammerdin(Paladin):
         wait(0.1, 0.15)
         self._cast_hammers(1.6, "redemption")
         return True
+    
+    def quick_attack(self):
+        self._move_and_attack((0, 0), 2)
 
      ########################################################################################
      # Chaos Sanctuary, Trash, Seal Bosses (a = Vizier, b = De Seis, c = Infector) & Diablo #

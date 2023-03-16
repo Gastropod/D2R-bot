@@ -91,7 +91,9 @@ class Arcane:
             self._char.kill_summoner()
             if Config().char["open_chests"]:
                 self._chest.open_up_chests()
+            self._char.quick_attack()
             picked_up_items |= self._pickit.pick_up_items(self._char)
+            self._char.quick_attack()
             if found:
                 return (Location.A2_ARC_END, picked_up_items)
             elif i < len(path_arr) - 1:
